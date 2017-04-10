@@ -68,18 +68,17 @@ def hdu_pagenum_max
     result[-1].to_i
 end
 
-# Todo
 def hdu_pid_max(page) 
     baseurl = "http://acm.hdu.edu.cn/listproblem.php?vol=#{page.to_s}"
     response = RestClient.get baseurl
     doc = Nokogiri::HTML(response.body)
 
-    result = Array.new
-    io = File.open("test.html", "w")
-    doc.search('//table/tr[5]/td/table/.').each do |row|
-        io << row
+    result = 1000
+    doc.search('//table/tr[5]/td/table/script').each do |row|
+        result = row.children.to_s.split(";")[-1].split(",")[1]
     end
-    io.close
+
+    return result if result != 1000
 end
 
 def thread(max_num)
@@ -105,5 +104,5 @@ def thread(max_num)
 end
 
 
-thread(6022)
+hdu_get(hdu_pid_max(hdu_pagenum_max).to_i)
 
