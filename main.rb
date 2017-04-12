@@ -104,5 +104,5 @@ def thread(max_num)
 end
 
 
-hdu_get(hdu_pid_max(hdu_pagenum_max).to_i)
+thread(hdu_pid_max(hdu_pagenum_max).to_i)
 
