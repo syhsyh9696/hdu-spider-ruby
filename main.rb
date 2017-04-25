@@ -1,27 +1,39 @@
 # encoding:utf-8
 
 require 'rest-client'
+require 'reverse_markdown'
 require 'nokogiri'
-require 'mysql2'
 require 'json'
 require 'pp'
 
 def hdu_get(pid)
     baseurl = "http://acm.hdu.edu.cn/showproblem.php?pid=#{pid.to_s}"
 
-    begin 
+    begin
         response = RestClient.get baseurl
     rescue Exception => e
         p "connect error + #{pid}"
     end
 
-    begin 
+    begin
         body = response.body.force_encoding("gbk").encode!("utf-8")
     rescue
         p "encoding error #{pid}"
     end
-    
+
     doc = Nokogiri::HTML(body)
+    host = "http://acm.hdu.edu.cn"
+
+    # special
+    doc.search('//a').each do |row|
+        row.attributes['href'].value = host + row.attributes['href'].value if row.attributes['href'] != nil
+    end
+
+    host = "http://acm.hdu.edu.cn/data"
+    doc.search('//img').each do |row|
+        temp = host + row.attributes['src'].value.split("data")[-1]
+        row.attributes['src'].value = temp if row.attributes['src'] != nil
+    end
 
     # find all types of the website
     result = Hash.new
@@ -29,32 +41,37 @@ def hdu_get(pid)
         result["#{row.children.text}"] = nil
     end
 
-    value_tmp = Array.new   
+    value_tmp = Array.new
     doc.search('//div[@class="panel_content"]').each do |row|
-        value_tmp <<  row.children.to_s
+        value_tmp << ReverseMarkdown.convert(row.children.to_s)
     end
 
     result.each do |index, value|
         result[index] = value_tmp.delete(value_tmp.first)
     end
 
-    result['title'] = doc.search('//h1').children.text
+    result['title'] = ReverseMarkdown.convert(doc.search('//h1').children.text)
 
-    limit_tmp = doc.search('//font/b/span').children.text
-    limit_tmp = limit_tmp.split(" ")
-    result['Timelimit'] = "#{limit_tmp[2]} MS"
-    result['Memorylimit'] = "#{limit_tmp[6]} K"
+    begin
+        limit_tmp = doc.search('//font/b/span').children.text
+        limit_tmp = limit_tmp.split(" ")
+        result['Timelimit'] = "#{limit_tmp[2].split("/")[-1]}"
+        result['Memorylimit'] = "#{limit_tmp[6].split("/")[-1]}"
+    rescue
+        p "#{pid} is nil"
+        return nil
+    end
 
     begin
         result = result.to_json
     rescue
         p "to_json method error #{pid}"
     end
-    
+
     io = File.open("./problems/#{pid}.json", "w")
     io << result
     io.close
-    
+
 end
 
 def hdu_pagenum_max
@@ -68,7 +85,7 @@ def hdu_pagenum_max
     result[-1].to_i
 end
 
-def hdu_pid_max(page) 
+def hdu_pid_max(page)
     baseurl = "http://acm.hdu.edu.cn/listproblem.php?vol=#{page.to_s}"
     response = RestClient.get baseurl
     doc = Nokogiri::HTML(response.body)
@@ -103,6 +120,4 @@ def thread(max_num)
     thread.each { |n| n.join }
 end
 
-
 thread(hdu_pid_max(hdu_pagenum_max).to_i)
-
