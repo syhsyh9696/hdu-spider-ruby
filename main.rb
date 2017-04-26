@@ -43,12 +43,21 @@ def hdu_get(pid)
 
     value_tmp = Array.new
     doc.search('//div[@class="panel_content"]').each do |row|
-        value_tmp << ReverseMarkdown.convert(row.children.to_s)
+        temp = row.children.to_s.gsub('<pre>', '').gsub('</pre>', '').gsub("\u00A0", "").strip
+        value_tmp << temp
     end
 
     result.each do |index, value|
         result[index] = value_tmp.delete(value_tmp.first)
     end
+
+    result.each do |index, value|
+        if index != "Sample Input" && index != "Sample Output"
+            result[index] = ReverseMarkdown.convert(value, unknown_tags: :bypass)
+        else
+            result[index] = value.split(">")[-1].gsub('</div', '')
+        end
+    end 
 
     result['title'] = ReverseMarkdown.convert(doc.search('//h1').children.text)
 
@@ -67,11 +76,10 @@ def hdu_get(pid)
     rescue
         p "to_json method error #{pid}"
     end
-
+    
     io = File.open("./problems/#{pid}.json", "w")
     io << result
     io.close
-
 end
 
 def hdu_pagenum_max
@@ -120,4 +128,5 @@ def thread(max_num)
     thread.each { |n| n.join }
 end
 
+#hdu_get(1945)
 thread(hdu_pid_max(hdu_pagenum_max).to_i)
