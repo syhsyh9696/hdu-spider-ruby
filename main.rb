@@ -13,17 +13,18 @@ def hdu_get(pid)
         response = RestClient.get baseurl
     rescue Exception => e
         p "connect error + #{pid}"
+        retry
     end
 
     begin
         body = response.body.force_encoding("gbk").encode!("utf-8")
     rescue
         p "encoding error #{pid}"
+        return nil
     end
 
     doc = Nokogiri::HTML(body)
     host = "http://acm.hdu.edu.cn"
-
     # special
     doc.search('//a').each do |row|
         row.attributes['href'].value = host + row.attributes['href'].value if row.attributes['href'] != nil
@@ -43,23 +44,24 @@ def hdu_get(pid)
 
     value_tmp = Array.new
     doc.search('//div[@class="panel_content"]').each do |row|
-        temp = row.children.to_s.gsub('<pre>', '').gsub('</pre>', '').gsub("\u00A0", "").strip
-        value_tmp << temp
+        #p row.children.to_s
+        temp = row.children.to_s
+        #temp = row.children.to_s.gsub('<pre>', '').gsub('</pre>', '').gsub("\u00A0", "").strip
+        value_tmp << temp.gsub("\u00A0", " ")
     end
 
     result.each do |index, value|
-        result[index] = value_tmp.delete(value_tmp.first)
+        result[index] = value_tmp.delete_at(0)
     end
 
     result.each do |index, value|
-        if index != "Sample Input" && index != "Sample Output"
-            result[index] = ReverseMarkdown.convert(value, unknown_tags: :bypass)
-        else
-            result[index] = value.split(">")[-1].gsub('</div', '')
-        end
-    end 
+        result[index] = ReverseMarkdown.convert(value, unknown_tags: :bypass).strip if index != "Sample Input" && index != "Sample Output"
+    end
 
-    result['title'] = ReverseMarkdown.convert(doc.search('//h1').children.text)
+    result["Sample Input"] = Nokogiri::HTML.parse(result["Sample Input"]).text
+    result["Sample Output"] = Nokogiri::HTML.parse(result["Sample Output"]).text
+
+    result['title'] = ReverseMarkdown.convert(doc.search('//h1').children.text).strip
 
     begin
         limit_tmp = doc.search('//font/b/span').children.text
@@ -128,5 +130,5 @@ def thread(max_num)
     thread.each { |n| n.join }
 end
 
-#hdu_get(1945)
+#hdu_get(1065)
 thread(hdu_pid_max(hdu_pagenum_max).to_i)
